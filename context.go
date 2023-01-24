@@ -22,9 +22,10 @@ type FlowContext struct {
 
 	Events map[string]EventFunction
 
-	ContextAction *ContextAction
-	IsRunning     bool
-	Comitting     bool
+	ContextAction    *ContextAction
+	IsRunning        bool
+	Committing       bool
+	TransactionMutex sync.Mutex
 }
 
 type FlowAndState struct {
@@ -91,8 +92,10 @@ func (ctx *FlowContext) UnregisterEvent(name string) {
 }
 
 func (ctx *FlowContext) StartTransaction() error {
-	if ctx.Comitting {
-		return errors.New("Context is comitting")
+	ctx.TransactionMutex.Lock()
+
+	if ctx.Committing {
+		return errors.New("Context is Committing")
 	}
 
 	if ctx.ContextAction != nil {
@@ -113,8 +116,8 @@ func (ctx *FlowContext) StartTransaction() error {
 // =========================================
 
 func (ctx *FlowContext) Next(state string) error {
-	if ctx.Comitting {
-		return errors.New("Context is comitting")
+	if ctx.Committing {
+		return errors.New("Context is Committing")
 	}
 
 	if ctx.ContextAction == nil {
@@ -131,8 +134,8 @@ func (ctx *FlowContext) Next(state string) error {
 }
 
 func (ctx *FlowContext) Start(flow string, state string) error {
-	if ctx.Comitting {
-		return errors.New("Context is comitting")
+	if ctx.Committing {
+		return errors.New("Context is Committing")
 	}
 
 	if ctx.ContextAction == nil {
@@ -148,8 +151,8 @@ func (ctx *FlowContext) Start(flow string, state string) error {
 }
 
 func (ctx *FlowContext) Stop() error {
-	if ctx.Comitting {
-		return errors.New("Context is comitting")
+	if ctx.Committing {
+		return errors.New("Context is Committing")
 	}
 
 	if ctx.ContextAction == nil {
@@ -166,8 +169,8 @@ func (ctx *FlowContext) Stop() error {
 }
 
 func (ctx *FlowContext) Child(flow string, state string) error {
-	if ctx.Comitting {
-		return errors.New("Context is comitting")
+	if ctx.Committing {
+		return errors.New("Context is Committing")
 	}
 
 	if ctx.ContextAction == nil {
@@ -187,8 +190,8 @@ func (ctx *FlowContext) Child(flow string, state string) error {
 }
 
 func (ctx *FlowContext) Parent(state string) error {
-	if ctx.Comitting {
-		return errors.New("Context is comitting")
+	if ctx.Committing {
+		return errors.New("Context is Committing")
 	}
 
 	if ctx.ContextAction == nil {
@@ -225,7 +228,7 @@ func (ctx *FlowContext) killEffect() {
 }
 
 func (ctx *FlowContext) Kill() {
-	if ctx.Comitting {
+	if ctx.Committing {
 		return
 	}
 
@@ -239,7 +242,7 @@ func (ctx *FlowContext) Kill() {
 }
 
 func (ctx *FlowContext) ForceKill() {
-	ctx.Comitting = false
+	ctx.Committing = false
 	ctx.ContextAction = nil
 	ctx.Kill()
 }
@@ -332,7 +335,8 @@ func (ctx *FlowContext) ForkParent(newState string) {
 // =========================================
 
 func (ctx *FlowContext) ResetCommitting() {
-	ctx.Comitting = false
+	ctx.Committing = false
+	ctx.TransactionMutex.Unlock()
 }
 
 func (ctx *FlowContext) Commit() error {
@@ -340,7 +344,7 @@ func (ctx *FlowContext) Commit() error {
 		return errors.New("Context transaction is not started")
 	}
 
-	ctx.Comitting = true
+	ctx.Committing = true
 	defer ctx.ResetCommitting()
 
 	if ctx.ContextAction.Stop {
@@ -369,22 +373,25 @@ func (ctx *FlowContext) Commit() error {
 }
 
 func (ctx *FlowContext) Rollback() {
-	if ctx.Comitting {
+	if ctx.Committing {
 		return
 	}
 
 	ctx.ContextAction = nil
+	ctx.ResetCommitting()
 }
 
 func (ctx *FlowContext) commitInternal() {
 	err := ctx.Commit()
 	if err != nil {
-		ctx.Comitting = true
+		ctx.Committing = true
 	}
 }
 
 func (ctx *FlowContext) Transaction(fn func() error) error {
-	ctx.StartTransaction()
+	if err := ctx.StartTransaction(); err != nil {
+		return err
+	}
 
 	err := fn()
 	if err != nil {
