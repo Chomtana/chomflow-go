@@ -97,7 +97,9 @@ func CronStateDefinition(def *StateDefinitionCron) *StateDefinition {
 			}
 
 			if def.onReady != nil {
-				return def.onReady(fc)
+				if err := def.onReady(fc); err != nil {
+					return err
+				}
 			}
 
 			s.StartAsync()
