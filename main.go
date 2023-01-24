@@ -13,12 +13,12 @@ func main() {
 			StateDefinitions: map[string]*StateDefinition{
 				"start": BasicStateDefinition(&StateDefinition{
 					onReady: func(fc *FlowContext) error {
-						fmt.Println("test")
-						fc.Next("cron5")
+						fmt.Println("Start state")
+						fc.Next("cron3")
 						return nil
 					},
 				}),
-				"cron5": CronStateDefinition(&StateDefinitionCron{
+				"cron3": CronStateDefinition(&StateDefinitionCron{
 					cronExpr: "* * * * * *",
 					cronFn: func(fc *FlowContext) error {
 						counter, ok := fc.ContextStorage.TemporaryStorage["counter"].(int)
@@ -31,6 +31,10 @@ func main() {
 						}
 
 						fmt.Printf("cron %d\n", counter)
+
+						if counter >= 3 {
+							fc.Next("start")
+						}
 						return nil
 					},
 				}),

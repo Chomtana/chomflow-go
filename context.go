@@ -255,11 +255,7 @@ func (ctx *FlowContext) Run(wg *sync.WaitGroup) {
 
 	ctx.IsRunning = true
 
-	fmt.Println("run2")
-
 	ctx.Transaction(func() error {
-		fmt.Println("run3")
-
 		for i := 0; i <= ctx.CurrentState.RetryCount; i++ {
 			if err := ctx.CurrentState.onEnter(ctx); err != nil {
 				if i == ctx.CurrentState.RetryCount {
@@ -285,6 +281,9 @@ func (ctx *FlowContext) Run(wg *sync.WaitGroup) {
 func (ctx *FlowContext) RunNextState(nextState string) {
 	// Let it run on its own
 	ctx.IsRunning = false
+
+	ctx.killEffect()
+
 	flow, err := ctx.Flow.Machine.NewFlow(ctx.Flow.Name, nextState)
 
 	if err != nil {
@@ -377,6 +376,13 @@ func (ctx *FlowContext) Rollback() {
 	ctx.ContextAction = nil
 }
 
+func (ctx *FlowContext) commitInternal() {
+	err := ctx.Commit()
+	if err != nil {
+		ctx.Comitting = true
+	}
+}
+
 func (ctx *FlowContext) Transaction(fn func() error) error {
 	ctx.StartTransaction()
 
@@ -386,11 +392,7 @@ func (ctx *FlowContext) Transaction(fn func() error) error {
 		return err
 	}
 
-	err = ctx.Commit()
-	if err != nil {
-		ctx.Comitting = true
-		return err
-	}
+	go ctx.commitInternal()
 
 	return nil
 }

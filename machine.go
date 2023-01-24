@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 )
 
 type Machine struct {
@@ -43,7 +42,7 @@ func (m *Machine) NewFlow(name string, state string) (*Flow, error) {
 		if localStorage, ok := existingFlow.LocalStorages[state]; ok {
 			existingFlow.Context.LocalStorage = localStorage
 		} else {
-			localStorage = &Storage{}
+			localStorage = NewStorage()
 			existingFlow.Context.LocalStorage = localStorage
 			existingFlow.LocalStorages[state] = localStorage
 		}
@@ -55,9 +54,9 @@ func (m *Machine) NewFlow(name string, state string) (*Flow, error) {
 
 		return existingFlow, nil
 	} else {
-		contextStorage := &Storage{}
-		localStorage := &Storage{}
-		flowStorage := &Storage{}
+		contextStorage := NewStorage()
+		localStorage := NewStorage()
+		flowStorage := NewStorage()
 
 		ctx := &FlowContext{
 			ContextStorage: contextStorage,
@@ -103,7 +102,7 @@ func (m *Machine) NewChildFlow(parentContext *FlowContext, name string, state st
 	if localStorage, ok := flow.LocalStorages[state]; ok {
 		flow.Context.LocalStorage = localStorage
 	} else {
-		localStorage = &Storage{}
+		localStorage = NewStorage()
 		flow.Context.LocalStorage = localStorage
 		flow.LocalStorages[state] = localStorage
 	}
@@ -112,7 +111,7 @@ func (m *Machine) NewChildFlow(parentContext *FlowContext, name string, state st
 }
 
 func NewMachine(definition *MachineDefinition) (*Machine, error) {
-	globalStorage := &Storage{}
+	globalStorage := NewStorage()
 	_, hasInitialStateDefinition := definition.StateDefinitions[definition.InitialState]
 
 	if !hasInitialStateDefinition {
@@ -129,7 +128,7 @@ func NewMachine(definition *MachineDefinition) (*Machine, error) {
 
 	for key, value := range definition.StateDefinitions {
 		m.StateDefinitions[key] = value
-		m.StateStorages[key] = &Storage{}
+		m.StateStorages[key] = NewStorage()
 	}
 
 	flow, err := m.NewFlow(definition.InitialFlowName, definition.InitialState)
@@ -139,8 +138,6 @@ func NewMachine(definition *MachineDefinition) (*Machine, error) {
 	}
 
 	m.Flows[definition.InitialFlowName] = flow
-
-	fmt.Println("run1")
 
 	// Let it run on its own
 	go flow.Context.Run(nil)

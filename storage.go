@@ -9,6 +9,13 @@ type Storage struct {
 	StateHistory      []string
 }
 
+func NewStorage() *Storage {
+	return &Storage{
+		PersistentStorage: make(map[string]interface{}),
+		TemporaryStorage:  map[string]interface{}{},
+	}
+}
+
 func (s *Storage) PushHistory(state string) error {
 	// Clone by json
 	var clone map[string]interface{}
